@@ -7,6 +7,13 @@ require_once('ws_data_service.php');
     WSAPI_DBPASSWORD="hope-not-password";    
 
  */
+$callback=false;    
+if(isset($_GET['callback']))
+   $callback=$_GET['callback'];
+if(!$callback){
+    echo 'Please use JSONP format';
+    return;
+}
 $conf['dsn']=getenv("WSAPI_DSN");
 $conf['dbname']=getenv("WSAPI_DBNAME");
 $conf['dbpassword']=getenv("WSAPI_DBPASSWORD");;
@@ -23,13 +30,14 @@ try{
         case 'load':
             if(isset($_GET['key']))
                 $key=$_GET['key'];
+            
             $length=0;
             $start=0;
             if(isset($_GET['length']))
                 $length=$_GET['length'];
             if(isset($_GET['start']))
                 $start=$_GET['start'];
-            load($opt,$start,$length);
+            load($callback,$key,$start,$length);
             break;
         case 'create':
             if(isset($_GET['key']))
@@ -66,94 +74,105 @@ try{
     }
 }
 catch(Exception $x){
-    echo json_encode(array(
+    $s= jsonp(json_encode(array(
         "success" => false,
         "msg"=>"Unhandled Exception while executing your command ".$func.":".fe($x)
-    )); 
+    )));
+    echo $s;  
     return;
 }
+function jsonp($str){
+    global $callback;
+    //return '<script type="text/javascript">'.$callback."(".$str.")</script>";
+return $callback."(".$str.")";
 
-function load($key,$start,$length){
+}
+function load($callback,$key,$start,$length){
     global $ds;
     if(!$key){
-        echo json_encode(array(
+        echo jsonp(json_encode(array(
             "success" => false,
             "msg"=>"User Key is missing"
-        )); 
+        ))); 
         return;
     }
    
-    $events=$ds->load($key,$start,$length);
-    echo json_encode(array(
+    $events_recs=$ds->load($key,$start,$length);
+    $events=array();
+    $i=0;
+    foreach ($events_recs as $rec) {
+        $events[$i]=$rec;
+    }
+    echo jsonp(json_encode(array(
         "success" => true,
         "events"=>$events
-    )); 
+    ))); 
 }
 function create($key,$eventTime,$json){
     global $ds;
     if(!$key){
-        echo json_encode(array(
+        echo jsonp(json_encode(array(
             "success" => false,
             "msg"=>"User Key is missing"
-        )); 
+        ))); 
         return;
     } 
     $id=$ds->create($key,$eventTime,$json);
     if($id)
-        echo json_encode(array(
+        echo jsonp(json_encode(array(
             "success" => true,
             "id"=>$id
-        ));
+        )));
     else{
-       echo json_encode(array(
+       echo jsonp(json_encode(array(
         "success" => false,
         "msg"=>"Unable to create event"
 
-        )); 
+        ))); 
     } 
 }
 function remove($key,$id){
     global $ds;
     if(!$key){
-        echo json_encode(array(
+        echo jsonp(json_encode(array(
             "success" => false,
             "msg"=>"User Key is missing"
-        )); 
+        ))); 
         return;
     }
     if(!$id){
-        echo json_encode(array(
+        echo jsonp(json_encode(array(
             "success" => false,
             "msg"=>"id is missing"
-        )); 
+        ))); 
         return;
     } 
    
     $ds->remove($key,$id);
-    echo json_encode(array(
+    echo jsonp(json_encode(array(
         "success" => true
-    )); 
+    ))); 
 }
 function update($key,$id,$eventTime,$json){
     global $ds;
     if(!$key){
-        echo json_encode(array(
+        echo jsonp(json_encode(array(
             "success" => false,
             "msg"=>"User Key is missing"
-        )); 
+        ))); 
         return;
     } 
     if(!$id){
-        echo json_encode(array(
+        echo jsonp(json_encode(array(
             "success" => false,
             "msg"=>"id is missing"
-        )); 
+        ))); 
         return;
     } 
     $ds->update($key,$id,$eventTime,$json);
-    echo json_encode(array(
+    echo jsonp(json_encode(array(
         "success" => true
-    ));
+    )));
 }
 function fe($x){ //formatException
     $trace=$x->getTrace();
